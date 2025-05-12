@@ -26,6 +26,10 @@
     async function fetchFittings() {
       const res = await fetch(URL);
       const data = await res.json();
+      if (!data.values) {
+        console.error('No data found');
+        return;
+      }
       const [headers, ...rows] = data.values;
 
       document.getElementById('search').addEventListener('input', function () {
