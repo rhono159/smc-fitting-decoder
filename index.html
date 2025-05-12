@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SMC Fitting Decoder</title>
+  <meta charset="UTF-8" />
+  <style>
+    body { font-family: Arial; margin: 2rem; }
+    input { padding: 0.5rem; width: 300px; }
+    table { border-collapse: collapse; margin-top: 1rem; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; }
+    th { background-color: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <h1>SMC Fitting Decoder</h1>
+  <input id="search" placeholder="Enter fitting code like KQ2H06-00A" />
+  <div id="result"></div>
+
+  <script>
+    const SHEET_ID = '1VuMW_NGD_fpXtdHYn24NWC6t-5sJnGhetSPY61UWzw4';
+    const SHEET_NAME = 'Fittings';
+    const API_KEY = 'AIzaSyA_X9r8coIAO8HwRWWdQ95UHZM6aJD5zbY'; // <-- Replace this line
+
+    const URL = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
+
+    async function fetchFittings() {
+      const res = await fetch(URL);
+      const data = await res.json();
+      const [headers, ...rows] = data.values;
+
+      document.getElementById('search').addEventListener('input', function () {
+        const query = this.value.toUpperCase();
+        const filtered = rows.filter(row => row[0].toUpperCase().includes(query));
+        let html = '';
+        if (filtered.length > 0) {
+          html += '<table><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+          html += filtered.map(row => '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>').join('');
+          html += '</table>';
+        } else if (query.length > 0) {
+          html = '<p>No match found.</p>';
+        }
+        document.getElementById('result').innerHTML = html;
+      });
+    }
+
+    fetchFittings();
+  </script>
+</body>
+</html>
