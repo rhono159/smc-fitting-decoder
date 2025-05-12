@@ -45,9 +45,13 @@
         }
         document.getElementById('result').innerHTML = html;
       });
+    } catch (error) {
+      console.error('Fetch error:', error);
     }
+  }
 
     fetchFittings();
+    
   </script>
 </body>
 </html>
