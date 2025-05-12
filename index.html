@@ -27,7 +27,7 @@
       const res = await fetch(URL);
       const data = await res.json();
       if (!data.values) {
-        console.error('No data found');
+        console.error('No data found or an error occurred:', data);
         return;
       }
       const [headers, ...rows] = data.values;
