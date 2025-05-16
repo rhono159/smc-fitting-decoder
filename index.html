@@ -9,54 +9,94 @@
     table { border-collapse: collapse; width: 100%; }
     th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
     th { background-color: #f0f0f0; }
+    #decoded { margin-bottom: 2rem; }
     #result p { margin-top: 1rem; color: #666; }
   </style>
 </head>
 <body>
   <h1>SMC Fitting Decoder</h1>
   <input id="search" placeholder="Enter fitting code like KQ2H06-00A" />
-  <div id="result"><p>Type a fitting code to see results.</p></div>
+
+  <div id="decoded">
+    <strong>Decoded:</strong>
+    <div id="decoded-result">Type a fitting code to decode.</div>
+  </div>
+
+  <div id="result"><p>Type a fitting code to see table matches.</p></div>
 
   <script>
     const SHEET_ID = '1VuMW_NGD_fpXtdHYn24NWC6t-5sJnGhetSPY61UWzw4';
-    const SHEET_NAME = 'List 2';
     const API_KEY = 'AIzaSyA_X9r8coIAO8HwRWWdQ95UHZM6aJD5zbY';
-
+    const SHEET_NAME = 'Podminky';
     const URL = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
 
-    async function fetchFittings() {
-      try {
-        const res = await fetch(URL);
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data = await res.json();
-        const [headers, ...rows] = data.values || [];
+    async function fetchAllTables() {
+      const res = await fetch(URL);
+      const data = await res.json();
+      const [header, ...rows] = data.values;
 
-        const input = document.getElementById('search');
-        const resultDiv = document.getElementById('result');
+      // Extract separate lookup tables from combined sheet
+      const types = {};
+      const diameters = {};
+      const threads = {};
 
-        input.addEventListener('input', () => {
-          const query = input.value.toUpperCase().trim();
-          const filtered = rows.filter(row => row[0]?.toUpperCase().includes(query));
-          if (!query) {
-            resultDiv.innerHTML = '<p>Type a fitting code to see results.</p>';
-            return;
-          }
-          if (filtered.length > 0) {
-            let html = '<table><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
-            html += filtered.map(row => '<tr>' + headers.map((_, i) => `<td>${row[i] || ''}</td>`).join('') + '</tr>').join('');
-            html += '</table>';
-            resultDiv.innerHTML = html;
-          } else {
-            resultDiv.innerHTML = '<p>No match found.</p>';
-          }
-        });
-      } catch (err) {
-        console.error('Fetch error:', err);
-        document.getElementById('result').innerHTML = '<p style="color:red;">Error loading data. Please check the API key and sheet permissions.</p>';
+      for (const row of rows) {
+        if (row[0] && row[1]) types[row[0]] = row[1]; // Kod + Type description
+        if (row[3] && row[4]) diameters[row[3]] = row[4]; // Prumery + Return
+        if (row[6] && row[7]) threads[row[6]] = row[7]; // Kod + Zavit
       }
+
+      return { types, diameters, threads };
     }
 
-    fetchFittings();
+    function decodeFitting(code, lookups) {
+      if (!code || code.length < 6) return 'Invalid code';
+
+      const typeKey = code.substring(3, 5).replace(/[^A-Z]/gi, '');
+      const diameterKey = code.substring(5, 7).replace(/[^0-9]/g, '');
+      const dashIndex = code.indexOf('-');
+      const threadKey = dashIndex >= 0 ? code.substring(dashIndex + 1, dashIndex + 3) : '';
+
+      const type = lookups.types[typeKey] || 'Unknown type';
+      const diameter = lookups.diameters[diameterKey] || 'Unknown diameter';
+      const thread = (threadKey === '00') ? 'None' : (lookups.threads[threadKey] || 'Unknown thread');
+
+      return `Type: ${type}<br>Tube diameter: ${diameter}<br>Thread: ${thread}`;
+    }
+
+    async function init() {
+      const { types, diameters, threads } = await fetchAllTables();
+      const input = document.getElementById('search');
+      const resultDiv = document.getElementById('result');
+      const decodedDiv = document.getElementById('decoded-result');
+
+      input.addEventListener('input', async () => {
+        const query = input.value.toUpperCase().trim();
+        if (!query) {
+          decodedDiv.innerHTML = 'Type a fitting code to decode.';
+          resultDiv.innerHTML = '<p>Type a fitting code to see table matches.</p>';
+          return;
+        }
+
+        decodedDiv.innerHTML = decodeFitting(query, { types, diameters, threads });
+
+        const listRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/List%202?key=${API_KEY}`);
+        const listData = await listRes.json();
+        const [headers, ...rows] = listData.values || [];
+        const filtered = rows.filter(row => row[0]?.toUpperCase().includes(query));
+
+        if (filtered.length > 0) {
+          let html = '<table><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+          html += filtered.map(row => '<tr>' + headers.map((_, i) => `<td>${row[i] || ''}</td>`).join('') + '</tr>').join('');
+          html += '</table>';
+          resultDiv.innerHTML = html;
+        } else {
+          resultDiv.innerHTML = '<p>No match found in List 2.</p>';
+        }
+      });
+    }
+
+    init();
   </script>
 </body>
 </html>
